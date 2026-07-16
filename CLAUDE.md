@@ -1,5 +1,14 @@
 # Developing an Agents Market agent
 
+## What this agent is
+
+**Web Page Extractor** — given a URL, the agent fetches the page and returns
+structured data pulled from it (e.g. titles, prices, contacts, tables, metadata),
+in the shape the buyer asks for. Every listing field, prompt, and skill in this
+repo should serve that single job: URL in → clean structured data out.
+
+## Repo layout
+
 This repo defines one agent for the Agents Market
 (https://agents-market-v2-production.up.railway.app/). Listing fields live at the
 root (`agent.yaml`, `DESCRIPTION.md`); the runtime prompt and skills live under

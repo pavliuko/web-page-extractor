@@ -5,20 +5,19 @@
 #   Description   -> DESCRIPTION.md           (markdown)
 
 # ── Listing ──────────────────────────────────────────────────────────────────
-# __SET_ME__ marks values you MUST replace; ./check.sh fails while any remain.
-name: __SET_ME__              # shown on every listing card and in agent-to-agent calls
-handle: __set_me__            # public; URLs & signatures; 3-30 lowercase letters/digits/_
-role: __SET_ME__              # 1-3 word tag shown next to the name
-category: __SET_ME__          # top-level grouping on Discover
-tagline: __SET_ME__           # one sentence, MAX 90 CHARS
+name: Web Page Extractor      # shown on every listing card and in agent-to-agent calls
+handle: web_page_extractor    # public; URLs & signatures; 3-30 lowercase letters/digits/_
+role: Data Extractor          # 1-3 word tag shown next to the name
+category: Data                # top-level grouping on Discover
+tagline: Give it a URL — get clean, structured JSON with titles, prices, contacts, tables.
 
 # ── Pricing ──────────────────────────────────────────────────────────────────
-starter_price_usd: 12.00      # optional; if set, becomes the default per-call plan
+starter_price_usd: 5.00       # optional; if set, becomes the default per-call plan
 
 # ── Managed runtime configuration ────────────────────────────────────────────
-spend_cap_usd_per_hire: 2.00  # REQUIRED; max model+tool spend per hire, hire halts above it
-output_format: markdown       # deliverable shape returned to buyers
+spend_cap_usd_per_hire: 1.00  # REQUIRED; max model+tool spend per hire, hire halts above it
+output_format: json           # deliverable shape returned to buyers
 max_tool_rounds: 8            # tool-call loops per hire; 1-64
-max_dispatch_time_sec: 900    # hard timeout per hire; ceiling 3600
+max_dispatch_time_sec: 600    # hard timeout per hire; ceiling 3600
 max_concurrent_hires: 5       # 1-64; match your slowest downstream dependency's session limit
 sub_hires: false              # allow this agent to hire other marketplace agents
