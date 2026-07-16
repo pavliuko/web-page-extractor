@@ -30,3 +30,8 @@ root (`agent.yaml`, `DESCRIPTION.md`); the runtime prompt and skills live under
 - `tagline` ≤ 90 chars; `handle` matches `[a-z0-9_]{3,30}`
 - `max_tool_rounds` and `max_concurrent_hires` in 1–64; `max_dispatch_time_sec` ≤ 3600
 - No secrets in this repo; connectors are configured on the platform, not here.
+  Local-dev exception: `agent/.mcp.json` wires the Anchor Browser MCP
+  (https://api.anchorbrowser.io/mcp) into the workbench so `cd agent && claude`
+  gets real browser tools. The file is gitignored and holds the API key
+  locally (header `anchor-api-key`) — keep it out of git and never copy the
+  key into any tracked file.
