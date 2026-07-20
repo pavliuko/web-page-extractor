@@ -24,6 +24,29 @@ is_int()    { [[ "$1" =~ ^[0-9]+$ ]]; }
 # __SET_ME__ (any case) marks a template value that must be replaced before publishing.
 is_todo()   { [[ "$1" == *__SET_ME__* || "$1" == *__set_me__* ]]; }
 
+# ── SKILL.md frontmatter helpers ─────────────────────────────────────────────
+# skill_fm <file>   → the YAML frontmatter block (between the first two --- lines)
+# skill_body <file> → the body (everything after the second ---)
+skill_fm()   { awk '/^---[[:space:]]*$/{c++; if(c==1)next; if(c==2)exit} c==1' "$1"; }
+skill_body() { awk '/^---[[:space:]]*$/{c++; next} c>=2' "$1"; }
+# fm_val <key> — first value of a top-level "key:" from a frontmatter block on stdin.
+fm_val() { awk -F': *' -v k="$1" '$1==k{v=$0; sub(/^[^:]*:[ \t]*/,"",v); gsub(/[ \t]+#.*$/,"",v); gsub(/^[ \t]+|[ \t]+$/,"",v); print v; exit}'; }
+# skill_list_count <key> — best-effort count of items in activation.<key> (list or
+# inline [..]) from a frontmatter block on stdin; used for IronClaw truncation caps.
+skill_list_count() {
+  awk -v want="$1" '
+    collecting && /^[ \t]+-[ \t]*/ { c++; next }
+    collecting && /^[ \t]*[^ \t-]/ { print c; collecting=0 }
+    /^[A-Za-z_-]+:/ { inact = ($0 ~ /^activation:/) }
+    inact && $0 ~ ("^[ \t]+" want ":[ \t]*") {
+      v=$0; sub(/^[^:]*:[ \t]*/,"",v); gsub(/[ \t]/,"",v); sub(/#.*$/,"",v)
+      if (v ~ /^\[.*\]$/) { inner=substr(v,2,length(v)-2); if (inner=="") print 0; else {n=split(inner,a,","); print n}; exit }
+      collecting=1; c=0
+    }
+    END { if (collecting) print c }
+  '
+}
+
 echo "── Listing (agent.yaml) ─────────────────────────────────"
 if [ ! -f agent.yaml ]; then
   err "agent.yaml is missing — it is the source for every short form field"
@@ -155,29 +178,70 @@ fi
 
 echo
 echo "── Skills (agent/skills/) ───────────────────────────────"
+# Convention: one self-contained SKILL.md per skill dir — YAML frontmatter (name +
+# description, plus optional IronClaw activation/requires; kept portable across Claude
+# Code and IronClaw) followed by the markdown body. Uploaded as-is; no assembly step.
+# Dirs starting with '_' (e.g. _template) are scaffolds: checked but not counted as
+# publishable, and their failures are advisory.
 found=0
 for d in agent/skills/*/; do
   [ -d "$d" ] || continue
-  found=1
   s="$(basename "$d")"
-  if [ ! -f "$d/SKILL.md" ]; then
-    err "skill dir '$s' has no SKILL.md — nothing to upload"
-  elif ! head -1 "$d/SKILL.md" | grep -q '^---$'; then
-    warn "skill '$s': SKILL.md has no YAML frontmatter (name/description expected)"
+  if [[ "$s" == _* ]]; then scaffold=1; tag="scaffold"; else scaffold=0; tag="skill"; found=1; fi
+  serr() { if [ "$scaffold" -eq 1 ]; then warn "$1"; else err "$1"; fi; }
+
+  skill="$d/SKILL.md"
+  if [ ! -f "$skill" ]; then serr "$tag '$s': no SKILL.md — nothing to upload"; continue; fi
+  [ -f "$d/SKILL-BODY.md" ] && warn "$tag '$s': SKILL-BODY.md is obsolete under the single-file convention — fold it into SKILL.md and delete it"
+
+  fm="$(skill_fm "$skill")"
+  if [ -z "$fm" ]; then
+    serr "$tag '$s': SKILL.md has no YAML frontmatter (--- block with name/description)"
   else
-    ok "skill '$s' (SKILL.md with frontmatter)"
+    fname="$(printf '%s\n' "$fm" | fm_val name)"
+    fdesc="$(printf '%s\n' "$fm" | fm_val description)"
+    [ -n "$fname" ] || serr "$tag '$s': frontmatter missing 'name:' (required by Claude Code + IronClaw)"
+    [ "$scaffold" -eq 0 ] && [ -n "$fname" ] && ! [[ "$fname" =~ ^[a-z0-9-]+$ ]] && err "$tag '$s': name '$fname' must be a lowercase-kebab slug ([a-z0-9-])"
+    [ "$scaffold" -eq 0 ] && [ -n "$fname" ] && [ "$fname" != "$s" ] && warn "$tag '$s': name '$fname' ≠ directory '$s' — Claude Code expects them to match"
+    [ -n "$fdesc" ] || serr "$tag '$s': frontmatter missing 'description:' (required)"
+    kw="$(printf '%s\n' "$fm" | skill_list_count keywords)"; pt="$(printf '%s\n' "$fm" | skill_list_count patterns)"
+    [ "${kw:-0}" -gt 20 ] && warn "$tag '$s': activation.keywords=$kw > 20 — IronClaw silently drops the extras"
+    [ "${pt:-0}" -gt 5 ]  && warn "$tag '$s': activation.patterns=$pt > 5 — IronClaw silently drops the extras"
+  fi
+
+  body="$(skill_body "$skill" | grep -v '^[[:space:]]*$' || true)"
+  if [ -n "$body" ]; then ok "$tag '$s': SKILL.md ok — frontmatter + body ($(printf '%s\n' "$body" | wc -l | tr -d ' ') non-empty body lines)"
+  else serr "$tag '$s': SKILL.md has no body after the frontmatter — add the instructions"; fi
+
+  # Claude Code loads a wrapper per skill from agent/.claude/skills/ (no symlink); the
+  # wrapper holds Claude-only frontmatter and references this agent skill.
+  if [ "$scaffold" -eq 0 ]; then
+    w="agent/.claude/skills/$s/SKILL.md"
+    if [ ! -f "$w" ]; then
+      err "skill '$s': no Claude wrapper at $w — 'cd agent && claude' won't load it (copy agent/.claude/skills/_template)"
+    else
+      wname="$(skill_fm "$w" | fm_val name)"
+      [ -n "$wname" ] && [ "$wname" != "$s" ] && warn "skill '$s': wrapper name '$wname' ≠ '$s'"
+      grep -Eq "^[[:space:]]*@[./]*skills/$s/SKILL\.md[[:space:]]*$" "$w" \
+        && ok "skill '$s': Claude wrapper → @…/skills/$s/SKILL.md" \
+        || warn "skill '$s': wrapper doesn't reference '@../../../skills/$s/SKILL.md'"
+    fi
   fi
 done
-[ "$found" -eq 0 ] && warn "no skills under agent/skills/ — fine if the prompt alone is enough"
+[ "$found" -eq 0 ] && warn "no publishable skills under agent/skills/ — fine if the prompt alone is enough (scaffolds like _template don't count)"
 
 echo
 echo "── Workbench wiring ─────────────────────────────────────"
 [ -f agent/CLAUDE.md ] && grep -q '@SYSTEM_PROMPT.md' agent/CLAUDE.md \
   && ok "agent/CLAUDE.md imports @SYSTEM_PROMPT.md" \
   || warn "agent/CLAUDE.md missing or doesn't import @SYSTEM_PROMPT.md — 'cd agent && claude' won't adopt the prompt"
-[ -L agent/.claude/skills ] && [ "$(readlink agent/.claude/skills)" = "../skills" ] \
-  && ok "agent/.claude/skills symlink → ../skills" \
-  || warn "agent/.claude/skills is not a symlink to ../skills — Claude Code won't auto-load the skills"
+if [ -L agent/.claude/skills ]; then
+  warn "agent/.claude/skills is a symlink — the convention now uses a real directory of per-skill wrappers; replace it"
+elif [ ! -d agent/.claude/skills ]; then
+  warn "agent/.claude/skills/ is missing — Claude Code won't load any skills in the workbench"
+else
+  ok "agent/.claude/skills/ is a real directory of wrappers (no symlink)"
+fi
 
 echo
 if [ "$ERRORS" -gt 0 ]; then

@@ -1,7 +1,6 @@
 ---
 name: extract-page
 description: Given a URL (plus an optional field list or JSON schema), fetch the page with the Anchor Browser MCP tools and return clean, structured JSON extracted from it. Use this for every extraction job — it is the agent's core workflow.
-disable-model-invocation: true
 ---
 
 # Extract structured data from a web page
