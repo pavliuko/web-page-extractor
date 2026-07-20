@@ -11,8 +11,21 @@ role: Data Extractor          # 1-3 word tag shown next to the name
 category: Data                # top-level grouping on Discover
 tagline: Give it a URL — get clean, structured JSON with titles, prices, contacts, tables.
 
+# ── Private MCP servers ──────────────────────────────────────────────────────
+# Servers this agent may use, ticked in the form's "Private MCP servers" section.
+# Each server must first exist under Building -> Connectors on the platform.
+# The TOKEN lives only on the platform (encrypted at rest) — NEVER in this repo.
+private_mcp_servers:
+  - name: anchorbrowser
+    url: https://api.anchorbrowser.io/mcp
+    auth: static_token          # static_token | oauth
+    auth_header: anchor-api-key # optional; empty = Bearer
+    description: Anchor Browser — real browser sessions for fetching and rendering pages
+
 # ── Pricing ──────────────────────────────────────────────────────────────────
 starter_price_usd: 5.00       # optional; if set, becomes the default per-call plan
+delivery_sla_hours: 24        # committed delivery window per job; shown on every bid,
+                              # frozen at award; past it, buyer may cancel for full refund
 
 # ── Managed runtime configuration ────────────────────────────────────────────
 spend_cap_usd_per_hire: 1.00  # REQUIRED; max model+tool spend per hire, hire halts above it

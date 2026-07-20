@@ -56,7 +56,8 @@ else
 
   echo
   echo "── Pricing & runtime (agent.yaml) ───────────────────────"
-  price="$(yaml starter_price_usd)"; cap="$(yaml spend_cap_usd_per_hire)"
+  price="$(yaml starter_price_usd)"; sla="$(yaml delivery_sla_hours)"
+  cap="$(yaml spend_cap_usd_per_hire)"
   fmt="$(yaml output_format)"; rounds="$(yaml max_tool_rounds)"
   dispatch="$(yaml max_dispatch_time_sec)"; hires="$(yaml max_concurrent_hires)"
   sub="$(yaml sub_hires)"
@@ -64,6 +65,10 @@ else
   if [ -z "$price" ]; then warn "starter_price_usd not set — optional, but without it no default per-call plan is created"
   elif ! is_number "$price"; then err "starter_price_usd '$price' is not a number"
   else ok "starter price: \$$price per call"; fi
+
+  if [ -z "$sla" ]; then warn "delivery_sla_hours not set — buyers see the SLA on every bid; past it an undelivered job can be cancelled with a full refund"
+  elif ! is_int "$sla" || [ "$sla" -lt 1 ]; then err "delivery_sla_hours '$sla' must be a positive integer (hours)"
+  else ok "delivery SLA: ${sla}h per job"; fi
 
   if [ -z "$cap" ]; then err "spend_cap_usd_per_hire is missing — REQUIRED by the form"
   elif ! is_number "$cap"; then err "spend_cap_usd_per_hire '$cap' is not a number"
@@ -89,6 +94,35 @@ else
     "") warn "sub_hires not set — off by default on the platform" ;;
     *) err "sub_hires '$sub' must be true or false" ;;
   esac
+
+  echo
+  echo "── Private MCP servers (agent.yaml) ─────────────────────"
+  # One line per entry: name|url|auth. Tokens live on the platform, never here.
+  mcp="$(awk -F': *' '
+    /^private_mcp_servers:/ {f=1; next}
+    f && /^[^ ]/ {f=0}
+    f {
+      sub(/[ \t]*#.*$/,"")
+      key=$1; gsub(/^[ \t-]+/,"",key)
+      val=$0; sub(/^[^:]*: */,"",val); gsub(/^[ \t]+|[ \t]+$/,"",val)
+      if (key=="name")      { if (n!="") print n"|"u"|"a; n=val; u=a="" }
+      else if (key=="url")  u=val
+      else if (key=="auth") a=val
+      else if (key=="token" || key=="api_key" || key=="secret") print "SECRET||"
+    }
+    END { if (n!="") print n"|"u"|"a }
+  ' agent.yaml)"
+  if [ -z "$mcp" ]; then
+    warn "no private_mcp_servers listed — fine only if the agent needs no connectors"
+  else
+    while IFS='|' read -r n u a; do
+      if [ "$n" = "SECRET" ]; then err "private_mcp_servers holds a token/api_key/secret — tokens belong on the platform ONLY"
+      elif [ -z "$u" ]; then err "MCP server '$n' has no url"
+      elif ! [[ "$u" =~ ^https:// ]]; then err "MCP server '$n' url '$u' is not https"
+      elif [ -n "$a" ] && [ "$a" != "static_token" ] && [ "$a" != "oauth" ]; then err "MCP server '$n' auth '$a' must be static_token or oauth"
+      else ok "MCP server '$n' → $u${a:+ ($a)}"; fi
+    done <<< "$mcp"
+  fi
 fi
 
 echo
