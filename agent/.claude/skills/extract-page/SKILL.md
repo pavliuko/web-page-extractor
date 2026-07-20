@@ -2,7 +2,7 @@
 # Claude Code wrapper — LOCAL DEV ONLY, never published. Keep Claude-specific frontmatter
 # here so it never pollutes the portable agent-skill frontmatter under agent/skills/.
 name: extract-page
-description: Given a URL (plus an optional field list or JSON schema), fetch the page with the Anchor Browser MCP tools and return clean, structured JSON extracted from it. Use this for every extraction job — it is the agent's core workflow.
+description: Fetches a URL with the Anchor Browser MCP tools and returns clean, structured JSON extracted from the page — titles, prices, contacts, tables, metadata — in the buyer's requested shape. ALWAYS invoke this skill when the user gives a link to `extract` or `scrape`, asks to pull product/article/listing/company fields from a web page, or supplies a field list or JSON schema to populate from a URL. Do not fetch the page with any other tool or answer from prior knowledge — use this skill first.
 # Claude Code-only fields (safe here — never shipped to the marketplace):
 disable-model-invocation: true
 ---
