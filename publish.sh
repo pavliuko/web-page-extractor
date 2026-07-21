@@ -114,19 +114,36 @@ step() {
   esac
 }
 
-# ── Step list (form order). Each entry: name|label|kind|payload ──────────────
+# ── Step list. Skills and private MCP connectors come FIRST as a pre-action:
+# create/edit & upload each skill and set up each connector before touching the
+# listing fields, so they already exist on the agent when you fill in the rest of
+# the form. Remaining fields follow in form order. Each entry: name|label|kind|payload
 build_steps() {
+  local has_pre=0
+  for d in agent/skills/*/; do [ -f "$d/SKILL.md" ] && has_pre=1; done
+  [ -n "$(mcp_servers)" ] && has_pre=1
+  [ "$has_pre" -eq 1 ] && [ -z "$ONLY" ] && printf '\n%s\n' "$(bold '── Pre-action: skills & connectors (set these up first) ──')"
+  for d in agent/skills/*/; do
+    [ -f "$d/SKILL.md" ] || continue
+    s="$(basename "$d")"
+    step "skill_${s}_title" "Skill '$s': title"       value "$(fm "$d/SKILL.md" name)"
+    step "skill_${s}_desc"  "Skill '$s': description" value "$(fm "$d/SKILL.md" description)"
+    step "skill_$s" "Skill '$s': upload" note \
+      "Upload via '+ Upload new skill' → pick $(pwd)/${d}SKILL.md"
+  done
+  while IFS='|' read -r n u a h; do
+    [ -n "$n" ] || continue
+    step "mcp_$n" "Private MCP server: $n" note \
+      "Tick '$n' ($u). If it's not listed yet, add it under Building → Connectors: auth=$a${h:+, auth header '$h'}, token from your vault — never from this repo."
+  done < <(mcp_servers)
+
+  [ -z "$ONLY" ] && printf '\n%s\n' "$(bold '── Listing & runtime form fields ──')"
   step name          "Name"                       value "$(yaml name)"
   step handle        "Handle"                     value "$(yaml handle)"
   step role          "Role"                       value "$(yaml role)"
   step category      "Category"                   value "$(yaml category)"
   step tagline       "Tagline"                    value "$(yaml tagline)"
   step description   "Description (markdown)"     file  "DESCRIPTION.md"
-  while IFS='|' read -r n u a h; do
-    [ -n "$n" ] || continue
-    step "mcp_$n" "Private MCP server: $n" note \
-      "Tick '$n' ($u). If it's not listed yet, add it under Building → Connectors: auth=$a${h:+, auth header '$h'}, token from your vault — never from this repo."
-  done < <(mcp_servers)
   step listing_status "Listing status"             value "$(yaml listing_status)"
   step price         "Starter price (USD)"        value "$(yaml starter_price_usd)"
   step delivery_sla  "Delivery SLA (hours)"       value "$(yaml delivery_sla_hours)"
@@ -137,14 +154,6 @@ build_steps() {
   step dispatch_time "Max dispatch time (sec)"    value "$(yaml max_dispatch_time_sec)"
   step concurrent    "Max concurrent hires"       value "$(yaml max_concurrent_hires)"
   step sub_hires     "Sub-hires (toggle)"         value "$(yaml sub_hires)"
-  for d in agent/skills/*/; do
-    [ -f "$d/SKILL.md" ] || continue
-    s="$(basename "$d")"
-    step "skill_${s}_title" "Skill '$s': title"       value "$(fm "$d/SKILL.md" name)"
-    step "skill_${s}_desc"  "Skill '$s': description" value "$(fm "$d/SKILL.md" description)"
-    step "skill_$s" "Skill '$s': upload" note \
-      "Upload via '+ Upload new skill' → pick $(pwd)/${d}SKILL.md"
-  done
 }
 
 case "${1:-}" in
@@ -153,9 +162,9 @@ case "${1:-}" in
     # Re-run step() in list mode by printing names instead: cheap approach —
     # names are stable, so just document them here.
     cat <<'EOF'
-name handle role category tagline description mcp_<server> listing_status price
-delivery_sla system_prompt spend_cap output_format tool_rounds dispatch_time
-concurrent sub_hires skill_<dir>_title skill_<dir>_desc skill_<dir>
+skill_<dir>_title skill_<dir>_desc skill_<dir> mcp_<server> name handle role
+category tagline description listing_status price delivery_sla system_prompt
+spend_cap output_format tool_rounds dispatch_time concurrent sub_hires
 EOF
     exit 0 ;;
   *) ONLY="${1:-}" ;;
