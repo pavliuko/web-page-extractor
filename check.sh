@@ -69,8 +69,10 @@ else
   elif [ "$(echo "$role" | wc -w)" -gt 3 ]; then err "role '$role' is over 3 words"
   else ok "role: $role"; fi
 
+  # Allowed values are the fixed options in the marketplace form's Category dropdown.
   if [ -z "$category" ]; then err "category is empty — top-level grouping on Discover"
   elif is_todo "$category"; then err "category is still __SET_ME__ — pick a Discover category, e.g. 'Automation'"
+  elif ! [[ "$category" =~ ^(Automation|Data|Customer\ Support|Creative|Dev\ Tools|Other)$ ]]; then err "category '$category' invalid — one of: Automation, Data, Customer Support, Creative, Dev Tools, Other"
   else ok "category: $category"; fi
 
   if [ -z "$tagline" ]; then err "tagline is empty — one sentence shown on every listing card"
