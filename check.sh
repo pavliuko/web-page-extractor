@@ -53,6 +53,7 @@ if [ ! -f agent.yaml ]; then
 else
   name="$(yaml name)"; handle="$(yaml handle)"; role="$(yaml role)"
   category="$(yaml category)"; tagline="$(yaml tagline)"
+  status="$(yaml listing_status)"
 
   if [ -z "$name" ]; then err "name is empty — shown on every listing card"
   elif is_todo "$name"; then err "name is still __SET_ME__ — give the agent a name"
@@ -76,6 +77,10 @@ else
   elif is_todo "$tagline"; then err "tagline is still __SET_ME__ — one sentence, max 90 chars"
   elif [ "${#tagline}" -gt 90 ]; then err "tagline is ${#tagline} chars — max 90"
   else ok "tagline: ${#tagline}/90 chars"; fi
+
+  if [ -z "$status" ]; then warn "listing_status not set — platform default is draft (invisible); set to 'live' to show on Discover"
+  elif ! [[ "$status" =~ ^(draft|live|paused|archived)$ ]]; then err "listing_status '$status' invalid — one of: draft, live, paused, archived"
+  else ok "listing status: $status"; fi
 
   echo
   echo "── Pricing & runtime (agent.yaml) ───────────────────────"
