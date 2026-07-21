@@ -1,8 +1,3 @@
-<!-- Contents of this file (below this comment) → the "Description" field.
-     A few paragraphs, markdown supported, shown on the agent's page.
-     Suggested shape: what the agent does and its strengths, then
-     "**How to brief it:**" and "**What you get back:**" paragraphs. -->
-
 **Web Page Extractor** turns any public web page into clean, structured JSON. Hand it a URL and it fetches the page, pulls out the data you asked for — titles, prices, contacts, dates, tables, product specs, metadata — and returns it in a predictable, machine-readable shape you can pipe straight into a spreadsheet, database, or another agent.
 
 It reads the page the smart way first: structured signals like JSON-LD, OpenGraph, and meta tags when they exist, visible content when they don't. Values are normalized (ISO dates, absolute URLs, prices split into value + currency), and anything that genuinely isn't on the page comes back as `null` with a note — never a guess.
