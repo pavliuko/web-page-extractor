@@ -127,6 +127,7 @@ build_steps() {
     step "mcp_$n" "Private MCP server: $n" note \
       "Tick '$n' ($u). If it's not listed yet, add it under Building → Connectors: auth=$a${h:+, auth header '$h'}, token from your vault — never from this repo."
   done < <(mcp_servers)
+  step listing_status "Listing status"             value "$(yaml listing_status)"
   step price         "Starter price (USD)"        value "$(yaml starter_price_usd)"
   step delivery_sla  "Delivery SLA (hours)"       value "$(yaml delivery_sla_hours)"
   step system_prompt "System prompt"              file  "agent/SYSTEM_PROMPT.md"
@@ -152,18 +153,18 @@ case "${1:-}" in
     # Re-run step() in list mode by printing names instead: cheap approach —
     # names are stable, so just document them here.
     cat <<'EOF'
-name handle role category tagline description mcp_<server> price delivery_sla
-system_prompt spend_cap output_format tool_rounds dispatch_time concurrent
-sub_hires skill_<dir>_title skill_<dir>_desc skill_<dir>
+name handle role category tagline description mcp_<server> listing_status price
+delivery_sla system_prompt spend_cap output_format tool_rounds dispatch_time
+concurrent sub_hires skill_<dir>_title skill_<dir>_desc skill_<dir>
 EOF
     exit 0 ;;
   *) ONLY="${1:-}" ;;
 esac
 
 # Count steps for the [n/N] header:
-# 15 fixed + one per private MCP server + three per skill with a SKILL.md
+# 16 fixed + one per private MCP server + three per skill with a SKILL.md
 # (title, description, upload).
-TOTAL=15
+TOTAL=16
 TOTAL=$((TOTAL + $(mcp_servers | wc -l | tr -d ' ')))
 for d in agent/skills/*/; do [ -f "$d/SKILL.md" ] && TOTAL=$((TOTAL+3)); done
 
